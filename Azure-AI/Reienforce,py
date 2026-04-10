@@ -1,0 +1,42 @@
+import pandas as pd
+import numpy as np
+
+# 1. Load Data
+data = pd.read_csv(r"C:\Users\My Hp\Desktop\energy.csv")
+data.columns = data.columns.str.strip()
+data = data.dropna(subset=['power_max'])
+
+# 2. RL Environment Setup
+states = np.linspace(data['power_max'].min(), data['power_max'].max(), 10)
+q_table = np.zeros((len(states), 2)) # Rows = Power Levels, Cols = [Low, High]
+
+# Hyperparameters
+alpha, gamma, epsilon = 0.1, 0.9, 0.2
+total_reward_sum = 0  # <--- THIS IS YOUR SUM VARIABLE
+
+# 3. Training Loop with Sum Calculation
+for episode in range(10): 
+    episode_reward = 0
+    for _, row in data.iterrows():
+        state_idx = np.digitize(row['power_max'], states) - 1
+        
+        # Choose action (Epsilon-Greedy)
+        action = np.random.choice(2) if np.random.rand() < epsilon else np.argmax(q_table[state_idx])
+        
+        # Calculate Reward
+        actual = 1 if row['power_max'] > data['power_max'].mean() else 0
+        reward = 10 if action == actual else -5 # Reward for correct, penalty for wrong
+        
+        # Update Sums
+        episode_reward += reward
+        total_reward_sum += reward
+        
+        # Bellman Update
+        old_q = q_table[state_idx, action]
+        q_table[state_idx, action] = old_q + alpha * (reward + gamma * np.max(q_table[state_idx]) - old_q)
+    
+    print(f"Episode {episode+1} Reward Sum: {episode_reward}")
+
+print("-" * 30)
+print(f"📊 FINAL CUMULATIVE REWARD SUM: {total_reward_sum}")
+print("-" * 30)
